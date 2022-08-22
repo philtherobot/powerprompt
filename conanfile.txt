@@ -1,0 +1,5 @@
+[generators]
+cmake
+
+[requires]
+boost/1.79.0
