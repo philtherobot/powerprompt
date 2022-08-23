@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 
 namespace bp = boost::process;
 namespace fs = std::filesystem;
@@ -31,50 +32,117 @@ std::vector<std::string> get_working_directory_chain() {
   return result;
 }
 
+bool areThereUncommittedFiles() {
+  bp::ipstream is;
+  bp::system("git status --porcelain", bp::std_err > bp::null, bp::std_out > is);
+  while(is) {
+    std::string line;
+    std::getline(is, line);
+    if(!line.empty() && line.front() != '?') return true;
+  }
+  return false;
+
+}
+
+struct Color {
+  int red = 0;
+  int green = 0;
+  int blue = 0;
+};
+
+enum class Where { fore, back };
+
+std::string set_terminal_color(Color color, Where where) {
+  int where_code = where == Where::fore ? 38 : 48;
+
+  std::ostringstream os;
+  os << "\x1B[" << where_code << ";2;" << color.red << ';' << color.green << ';' << color.blue << 'm';
+  return os.str();
+}
+
+std::string text_color(Color color) {
+    return set_terminal_color(color, Where::fore);
+}
+
+std::string back_color(Color color) {
+  return set_terminal_color(color, Where::back);
+}
+
+std::string set_colors(Color fore, Color back) {
+  return text_color(fore) + back_color(back);
+}
+
+std::string transition_in_symbol(std::string const & symbol, Color fore, Color back) {
+  return text_color(back) + symbol + set_colors(fore, back);
+}
+
+std::string transition_out_symbol(std::string const & symbol, Color previous_back, Color fore, Color back) {
+  return set_colors(previous_back, back) + symbol + text_color(fore);
+}
+
+std::string reset_colors() {
+  return "\x1B[0m";
+}
+
+namespace Colors {
+Color const bright{211,215,207};
+Color const notification{239,41,41};
+Color const branch{6,152,154};
+Color const wd{78,154,6};
+}
+
+namespace Symbols {
+
+std::string const CHEVRON_RIGHT_FULL = "\xee\x82\xb0";
+std::string const CHEVRON_RIGHT_LINE = "\xee\x82\xb1";
+
+std::string const OPENING_BUBBLE =  "\xee\x82\xb6";
+std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
+
+std::string const GIFT = "\xef\x90\xb6";
+}
+
 int main() {
 
-  auto const branch = get_git_branch();
+  auto const branch_name = get_git_branch();
 
-  std::string const BRIGHT_TEXT_COLOR = "\x1B[38;2;211;215;207m";
-  std::string const BRANCH_TEXT = "\x1B[38;2;6;152;154m";
-  std::string const BRANCH_BACKGROUND = "\x1B[48;2;6;152;154m";
-  std::string const WD_TEXT = "\x1B[38;2;78;154;6m";
-  std::string const WD_BACKGROUND = "\x1B[48;2;78;154;6m";
-  std::string const RESET_COLORS = "\x1B[0m";
+  using std::cout;
+  
+  if(!branch_name.empty()) {
+    cout << text_color(Colors::branch) << Symbols::OPENING_BUBBLE;
+    cout << set_colors(Colors::bright, Colors::branch);
+    cout << ' ' << branch_name << ' ';
 
-  std::string const CHEVRON_RIGHT_FULL = "\xee\x82\xb0";
-  std::string const CHEVRON_RIGHT_LINE = "\xee\x82\xb1";
+    if(areThereUncommittedFiles()) {
+      cout << transition_in_symbol(Symbols::OPENING_BUBBLE, Colors::bright, Colors::notification);
+      cout << ' ' << Symbols::GIFT << ' ';
+      cout << transition_out_symbol(Symbols::CLOSING_BUBBLE, Colors::notification, Colors::bright, Colors::branch);
+      cout << ' ';
+    }
 
-  std::string const OPENING_BUBBLE =  "\xee\x82\xb6";
-  std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
-
-  if(!branch.empty()) {
-    std::cout << BRANCH_TEXT << OPENING_BUBBLE;
-    std::cout << BRIGHT_TEXT_COLOR << BRANCH_BACKGROUND;
-    std::cout << ' ' << branch << ' ';
-    std::cout << RESET_COLORS;
-    std::cout << BRANCH_TEXT << CLOSING_BUBBLE;
-    std::cout << RESET_COLORS;
-    std::cout << '\n';
+    cout << reset_colors();
+    cout << text_color(Colors::branch) << Symbols::CLOSING_BUBBLE;
+    cout << reset_colors();
+    cout << '\n';
   }
 
   auto const wd_chain = get_working_directory_chain();
 
-  auto const dir_separator = " " + CHEVRON_RIGHT_LINE + " ";
-  auto const final_separator = " " + CHEVRON_RIGHT_FULL;
+  auto const dir_separator = " " + Symbols::CHEVRON_RIGHT_LINE + " ";
+  auto const final_separator = " " + Symbols::CHEVRON_RIGHT_FULL;
 
   if(wd_chain.size() == 1) {
-    std::cout << BRIGHT_TEXT_COLOR << WD_BACKGROUND;
-    std::cout << ' ' << wd_chain.front();
-    std::cout << ' ';
-    std::cout << RESET_COLORS << WD_TEXT;
-    std::cout << CHEVRON_RIGHT_FULL;
-    std::cout << RESET_COLORS;
+    cout << set_colors(Colors::bright, Colors::wd);
+    cout << ' ' << wd_chain.front();
+    cout << ' ';
+    cout << reset_colors() << text_color(Colors::wd);
+    cout << Symbols::CHEVRON_RIGHT_FULL;
+    cout << reset_colors();
   }
   else if(wd_chain.size() > 1) {
-    std::cout << BRIGHT_TEXT_COLOR << WD_BACKGROUND;
-    std::cout << ' ' << wd_chain.front();
-    std::cout << dir_separator;
+    cout << set_colors(Colors::bright, Colors::wd);
+    cout << ' ' << wd_chain.front();
+    cout << dir_separator;
 
     std::for_each(
         std::begin(wd_chain) + 1,
@@ -84,16 +152,16 @@ int main() {
           std::cout << dir_separator;
     });
 
-    std::cout << wd_chain.back();
+    cout << wd_chain.back();
 
-    std::cout << ' ';
-    std::cout << RESET_COLORS << WD_TEXT;
-    std::cout << CHEVRON_RIGHT_FULL;
-    std::cout << RESET_COLORS;
+    cout << ' ';
+    cout << reset_colors() << text_color(Colors::wd);
+    cout << Symbols::CHEVRON_RIGHT_FULL;
+    cout << reset_colors();
   }
   // else, do nothing
 
-  std::cout << "\n$ ";
+  cout << "\n$ ";
 
   return 0;
 }
