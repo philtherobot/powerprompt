@@ -72,16 +72,20 @@ std::string set_colors(Color fore, Color back) {
   return text_color(fore) + back_color(back);
 }
 
-std::string transition_in_symbol(std::string const & symbol, Color fore, Color back) {
+std::string reset_colors() {
+  return "\x1B[0m";
+}
+
+std::string transition_in(std::string const & symbol, Color fore, Color back) {
   return text_color(back) + symbol + set_colors(fore, back);
 }
 
-std::string transition_out_symbol(std::string const & symbol, Color previous_back, Color fore, Color back) {
+std::string transition_out(std::string const & symbol, Color previous_back, Color fore, Color back) {
   return set_colors(previous_back, back) + symbol + text_color(fore);
 }
 
-std::string reset_colors() {
-  return "\x1B[0m";
+std::string transition_out(std::string const symbol, Color previous_back) {
+  return reset_colors() + text_color(previous_back) + symbol + reset_colors();
 }
 
 namespace Colors {
@@ -109,55 +113,43 @@ int main() {
   using std::cout;
   
   if(!branch_name.empty()) {
-    cout << text_color(Colors::branch) << Symbols::OPENING_BUBBLE;
-    cout << set_colors(Colors::bright, Colors::branch);
+    cout << transition_in(Symbols::OPENING_BUBBLE, Colors::bright, Colors::branch);
     cout << ' ' << branch_name << ' ';
 
     if(areThereUncommittedFiles()) {
-      cout << transition_in_symbol(Symbols::OPENING_BUBBLE, Colors::bright, Colors::notification);
+      cout << transition_in(Symbols::OPENING_BUBBLE, Colors::bright, Colors::notification);
       cout << ' ' << Symbols::GIFT << ' ';
-      cout << transition_out_symbol(Symbols::CLOSING_BUBBLE, Colors::notification, Colors::bright, Colors::branch);
+      cout << transition_out(Symbols::CLOSING_BUBBLE, Colors::notification, Colors::bright, Colors::branch);
       cout << ' ';
     }
 
-    cout << reset_colors();
-    cout << text_color(Colors::branch) << Symbols::CLOSING_BUBBLE;
-    cout << reset_colors();
+    cout << transition_out(Symbols::CLOSING_BUBBLE, Colors::branch);
     cout << '\n';
   }
 
   auto const wd_chain = get_working_directory_chain();
 
-  auto const dir_separator = " " + Symbols::CHEVRON_RIGHT_LINE + " ";
-  auto const final_separator = " " + Symbols::CHEVRON_RIGHT_FULL;
-
-  if(wd_chain.size() == 1) {
+  if(!wd_chain.empty()) {
     cout << set_colors(Colors::bright, Colors::wd);
     cout << ' ' << wd_chain.front();
-    cout << ' ';
-    cout << reset_colors() << text_color(Colors::wd);
-    cout << Symbols::CHEVRON_RIGHT_FULL;
-    cout << reset_colors();
-  }
-  else if(wd_chain.size() > 1) {
-    cout << set_colors(Colors::bright, Colors::wd);
-    cout << ' ' << wd_chain.front();
-    cout << dir_separator;
 
-    std::for_each(
-        std::begin(wd_chain) + 1,
-        std::end(wd_chain) - 1,
-        [&](auto const & e) {
-          std::cout << e;
-          std::cout << dir_separator;
-    });
+    if(wd_chain.size() > 1) {
+      auto const dir_separator = " " + Symbols::CHEVRON_RIGHT_LINE + " ";
+      cout << dir_separator;
 
-    cout << wd_chain.back();
+      std::for_each(
+          std::begin(wd_chain) + 1,
+          std::end(wd_chain) - 1,
+          [&](auto const & e) {
+            std::cout << e;
+            std::cout << dir_separator;
+          });
+
+      cout << wd_chain.back();
+    }
 
     cout << ' ';
-    cout << reset_colors() << text_color(Colors::wd);
-    cout << Symbols::CHEVRON_RIGHT_FULL;
-    cout << reset_colors();
+    cout << transition_out(Symbols::CHEVRON_RIGHT_FULL, Colors::wd);
   }
   // else, do nothing
 
