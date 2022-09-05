@@ -26,6 +26,7 @@ enum class UpstreamStatus {
 };
 
 struct Status {
+  std::string branchName;
   WorkingDirectoryStatus workingDirectoryStatus = WorkingDirectoryStatus::Clean;
   UpstreamStatus upstreamState = UpstreamStatus::Unset;
   unsigned int nbCommitsAhead = 0;
@@ -33,14 +34,16 @@ struct Status {
 };
 
 bool operator==(Status const &left, Status const &right) {
-  return left.workingDirectoryStatus == right.workingDirectoryStatus &&
+  return left.branchName == right.branchName &&
+      left.workingDirectoryStatus == right.workingDirectoryStatus &&
       left.upstreamState == right.upstreamState &&
       left.nbCommitsAhead == right.nbCommitsAhead &&
       left.nbCommitsBehind == right.nbCommitsBehind;
 }
 
 std::ostream & operator <<(std::ostream & os, Status const &status) {
-  os << "Git::Status{" << static_cast<int>(status.workingDirectoryStatus);
+  os << "Git::Status{" <<status.branchName ;
+  os << " " << static_cast<int>(status.workingDirectoryStatus);
   os << " " << (status.upstreamState == UpstreamStatus::Set ? "upstream branch set" : "no upstream branch");
   os << " ahead " << status.nbCommitsAhead;
   os << " behind " << status.nbCommitsBehind;
@@ -60,6 +63,18 @@ UpstreamStatus getUpstreamState(std::vector<std::string> const & gitStatusOutput
                        [](std::string const & line) {
                          return line.starts_with("# branch.upstream");
                        }) ? Git::UpstreamStatus::Set : Git::UpstreamStatus::Unset;
+}
+
+std::string getBranchName(std::vector<std::string> const & gitStatusOutput) {
+
+    std::regex branchMatcher("# branch.head (.+)");
+    for(std::string const & line: gitStatusOutput) {
+      std::smatch match;
+      if(std::regex_match(line, match, branchMatcher)) {
+        return match[1];
+      }
+    }
+    return {};
 }
 
 std::tuple<unsigned int, unsigned int> getBranchRelativeHistory(std::vector<std::string> const & gitStatusOutput) {
@@ -95,6 +110,7 @@ Status getStatus(std::istream & gitStatusOutput) {
   std::tie(ahead, behind) = Git::getBranchRelativeHistory(lines);
 
   return {
+      getBranchName(lines),
       getWorkingDirectoryStatus(lines),
       getUpstreamState(lines),
       ahead,
@@ -105,6 +121,15 @@ Status getStatus(std::istream & gitStatusOutput) {
 }
 
 /////////////////////////////////////////////////////////
+
+template <typename Visitor>
+void getPrompt(Git::Status const & gitStatus, fs::path const & workingDirectory, Visitor & visitor) {
+  visitor.resetColors();
+  visitor.resetColors();
+  visitor.resetColors();
+  visitor.resetColors();
+  visitor.resetColors();
+}
 
 std::string getGitBranch() {
   bp::ipstream is;
