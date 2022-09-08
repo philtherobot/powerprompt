@@ -13,6 +13,47 @@
 namespace bp = boost::process;
 namespace fs = std::filesystem;
 
+struct Color {
+  int red = 0;
+  int green = 0;
+  int blue = 0;
+};
+
+bool operator ==(Color const & left, Color const & right) {
+  return left.red == right.red && left.green == right.green && left.blue == right.blue;
+}
+
+namespace Colors {
+
+namespace Details {
+Color const white{211,215,207};
+Color const red{239,41,41};
+Color const cyan{6,152,154};
+Color const green{78,154,6};
+Color const blue{0, 0, 255};
+}
+
+Color const bright = Details::white;
+Color const medallion = Details::red;
+Color const branch = Details::cyan;
+Color const wd = Details::green;
+Color const historyShared = Details::white;
+Color const historyGrowthLocal = Details::blue;
+Color const historyGrowthOrigin = Details::green;
+}
+
+namespace Symbols {
+
+// TODO: add namespace Details, use conceptual names
+std::string const CHEVRON_RIGHT_FULL = "\xee\x82\xb0";
+std::string const CHEVRON_RIGHT_LINE = "\xee\x82\xb1";
+
+std::string const OPENING_BUBBLE =  "\xee\x82\xb6";
+std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
+
+std::string const GIFT = "\xef\x90\xb6";
+}
+
 namespace Git {
 
 enum class WorkingDirectoryStatus {
@@ -28,7 +69,7 @@ enum class UpstreamStatus {
 struct Status {
   std::string branchName;
   WorkingDirectoryStatus workingDirectoryStatus = WorkingDirectoryStatus::Clean;
-  UpstreamStatus upstreamState = UpstreamStatus::Unset;
+  UpstreamStatus upstreamStatus = UpstreamStatus::Unset;
   unsigned int nbCommitsAhead = 0;
   unsigned int nbCommitsBehind = 0;
 };
@@ -36,15 +77,15 @@ struct Status {
 bool operator==(Status const &left, Status const &right) {
   return left.branchName == right.branchName &&
       left.workingDirectoryStatus == right.workingDirectoryStatus &&
-      left.upstreamState == right.upstreamState &&
+      left.upstreamStatus == right.upstreamStatus &&
       left.nbCommitsAhead == right.nbCommitsAhead &&
       left.nbCommitsBehind == right.nbCommitsBehind;
 }
 
 std::ostream & operator <<(std::ostream & os, Status const &status) {
   os << "Git::Status{" <<status.branchName ;
-  os << " " << static_cast<int>(status.workingDirectoryStatus);
-  os << " " << (status.upstreamState == UpstreamStatus::Set ? "upstream branch set" : "no upstream branch");
+  os << " " << (status.workingDirectoryStatus == WorkingDirectoryStatus::Clean ? "clean" : "modified");
+  os << " " << (status.upstreamStatus == UpstreamStatus::Set ? "upstream branch set" : "no upstream branch");
   os << " ahead " << status.nbCommitsAhead;
   os << " behind " << status.nbCommitsBehind;
   os << "}";
@@ -58,7 +99,7 @@ WorkingDirectoryStatus getWorkingDirectoryStatus(std::vector<std::string> const 
                      }) ? Git::WorkingDirectoryStatus::Clean : Git::WorkingDirectoryStatus::Modified;
 }
 
-UpstreamStatus getUpstreamState(std::vector<std::string> const & gitStatusOutput) {
+UpstreamStatus getUpstreamStatus(std::vector<std::string> const & gitStatusOutput) {
   return std::any_of(std::begin(gitStatusOutput), std::end(gitStatusOutput),
                        [](std::string const & line) {
                          return line.starts_with("# branch.upstream");
@@ -112,7 +153,7 @@ Status getStatus(std::istream & gitStatusOutput) {
   return {
       getBranchName(lines),
       getWorkingDirectoryStatus(lines),
-      getUpstreamState(lines),
+      getUpstreamStatus(lines),
       ahead,
       behind
   };
@@ -122,15 +163,7 @@ Status getStatus(std::istream & gitStatusOutput) {
 
 /////////////////////////////////////////////////////////
 
-template <typename Visitor>
-void getPrompt(Git::Status const & gitStatus, fs::path const & workingDirectory, Visitor & visitor) {
-  visitor.resetColors();
-  visitor.resetColors();
-  visitor.resetColors();
-  visitor.resetColors();
-  visitor.resetColors();
-}
-
+// TOOD: this is older code meant to be replaced
 std::string getGitBranch() {
   bp::ipstream is;
   bp::system("git branch --show-current", bp::std_err > bp::null, bp::std_out > is);
@@ -139,19 +172,7 @@ std::string getGitBranch() {
   return line;
 }
 
-std::vector<std::string> getWorkingDirectoryChain() {
-
-  std::vector<std::string> result;
-
-  fs::path wd = std::getenv("PWD");
-
-  std::transform(std::begin(wd), std::end(wd), std::back_inserter(result), [](fs::path const &dir) {
-    return dir.string();
-  });
-
-  return result;
-}
-
+// TOOD: this is older code meant to be replaced
 bool areThereUncommittedFiles(std::istream & gitStatusOutput) {
   while(gitStatusOutput) {
     std::string line;
@@ -161,17 +182,23 @@ bool areThereUncommittedFiles(std::istream & gitStatusOutput) {
   return false;
 }
 
+// TOOD: this is older code meant to be replaced
 bool areThereUncommittedFiles() {
   bp::ipstream is;
   bp::system("git status --porcelain", bp::std_err > bp::null, bp::std_out > is);
   return areThereUncommittedFiles(is);
 }
 
-struct Color {
-  int red = 0;
-  int green = 0;
-  int blue = 0;
-};
+std::vector<std::string> getWorkingDirectoryChain(fs::path const & wd) {
+  
+  std::vector<std::string> result;
+
+  std::transform(std::begin(wd), std::end(wd), std::back_inserter(result), [](fs::path const &dir) {
+    return dir.string();
+  });
+
+  return result;
+}
 
 enum class Where { fore, back };
 
@@ -211,22 +238,110 @@ std::string transitionOut(std::string const symbol, Color previous_back) {
   return resetColors() + textColor(previous_back) + symbol + resetColors();
 }
 
-namespace Colors {
-Color const bright{211,215,207};
-Color const notification{239,41,41};
-Color const branch{6,152,154};
-Color const wd{78,154,6};
+template <typename Visitor>
+void getBranchBanner(Git::Status const & status, Visitor & visitor) {
+  visitor.foreColor(Colors::branch);
+  visitor.branchOpen();
+  visitor.foreColor(Colors::bright);
+  visitor.backColor(Colors::branch);
+
+  visitor.text(" ");
+  visitor.text(status.branchName);
+
+  visitor.text(" ");
+  visitor.branchStatus(status);
+
+  visitor.text(" ");
+  visitor.resetColors();
+  visitor.foreColor(Colors::branch);
+  visitor.branchClose();
+  visitor.resetColors();
 }
 
-namespace Symbols {
+template <typename Visitor>
+void getBranchStatusMedallion(Git::Status const & status, Visitor & visitor) {
 
-std::string const CHEVRON_RIGHT_FULL = "\xee\x82\xb0";
-std::string const CHEVRON_RIGHT_LINE = "\xee\x82\xb1";
+  if(status.workingDirectoryStatus == Git::WorkingDirectoryStatus::Clean &&
+      status.upstreamStatus == Git::UpstreamStatus::Set)
+    return;
 
-std::string const OPENING_BUBBLE =  "\xee\x82\xb6";
-std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
+  visitor.foreColor(Colors::medallion);
+  visitor.branchOpen();
+  visitor.foreColor(Colors::bright);
+  visitor.backColor(Colors::medallion);
+  visitor.text(" ");
 
-std::string const GIFT = "\xef\x90\xb6";
+  switch(status.workingDirectoryStatus) {
+  default:
+  case Git::WorkingDirectoryStatus::Clean: break;
+  case Git::WorkingDirectoryStatus::Modified:
+    visitor.symbolModified();
+    visitor.text(" ");
+    break;
+  }
+
+  switch(status.upstreamStatus) {
+  default:
+  case Git::UpstreamStatus::Set: break;
+  case Git::UpstreamStatus::Unset:
+    visitor.text("no upstream");
+    visitor.text(" ");
+    break;
+  }
+
+  visitor.foreColor(Colors::medallion);
+  visitor.backColor(Colors::branch);
+  visitor.branchClose();
+  visitor.foreColor(Colors::bright);
+}
+
+template <typename Visitor>
+void getWorkingDirectoryBanner(fs::path const & workingDirectory, Visitor & visitor) {
+
+  auto const wdChain = getWorkingDirectoryChain(workingDirectory);
+
+  if (!wdChain.empty()) {
+
+    visitor.foreColor(Colors::bright);
+    visitor.backColor(Colors::wd);
+
+    visitor.text(" ");
+    visitor.text(wdChain.front());
+
+    if (wdChain.size() > 1) {
+      auto dirSeparator = [&]() {
+        visitor.text(" ");
+        visitor.inlineDirSeparator();
+        visitor.text(" ");
+      };
+
+      dirSeparator();
+
+      std::for_each(
+          std::begin(wdChain) + 1,
+          std::end(wdChain) - 1,
+          [&](auto const &e) {
+            visitor.text(e);
+            dirSeparator();
+          });
+
+      visitor.text(wdChain.back());
+    }
+
+    visitor.text(" ");
+    visitor.resetColors();
+    visitor.foreColor(Colors::wd);
+    visitor.finalDirSeparator();
+    visitor.resetColors();
+  }
+}
+
+template <typename Visitor>
+void getPrompt(Git::Status const & gitStatus, fs::path const & workingDirectory, Visitor & visitor) {
+  visitor.branch(gitStatus);
+  visitor.newLine();
+  visitor.workingDirectory(workingDirectory);
+  visitor.cue();
 }
 
 int program() {
@@ -240,9 +355,9 @@ int program() {
     cout << ' ' << branchName << ' ';
 
     if(areThereUncommittedFiles()) {
-      cout << transitionIn(Symbols::OPENING_BUBBLE, Colors::bright, Colors::notification);
+      cout << transitionIn(Symbols::OPENING_BUBBLE, Colors::bright, Colors::medallion);
       cout << ' ' << Symbols::GIFT << ' ';
-      cout << transitionOut(Symbols::CLOSING_BUBBLE, Colors::notification, Colors::bright, Colors::branch);
+      cout << transitionOut(Symbols::CLOSING_BUBBLE, Colors::medallion, Colors::bright, Colors::branch);
       cout << ' ';
     }
 
@@ -250,7 +365,8 @@ int program() {
     cout << '\n';
   }
 
-  auto const wdChain = getWorkingDirectoryChain();
+  fs::path wd = getenv("PWD"); // check for null!?
+  auto const wdChain = getWorkingDirectoryChain(wd);
 
   if(!wdChain.empty()) {
     cout << setColors(Colors::bright, Colors::wd);
