@@ -52,6 +52,22 @@ std::string const OPENING_BUBBLE =  "\xee\x82\xb6";
 std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
 
 std::string const GIFT = "\xef\x90\xb6";
+
+std::string const ANGLE_UP_DOUBLE = "\xef\x84\x82";
+std::string const ANGLE_UP = "\xef\x84\x86";
+// asterisk fbc2  or  f069   or F881
+
+// angle double up  f102  ro F63E
+// angle single up  f106
+// battery  50%   f57d
+// battery 90%  f581
+// battery full  f578
+
+// lower half block  U2584
+// full block  U2588
+
+// temparature?   F2C7
+// flags  E3C4
 }
 
 namespace Git {
@@ -157,6 +173,12 @@ Status getStatus(std::istream & gitStatusOutput) {
       ahead,
       behind
   };
+}
+
+Status getStatus() {
+  bp::ipstream is;
+  bp::system("git status --porcelain=2 -b", bp::std_err > bp::null, bp::std_out > is);
+  return getStatus(is);
 }
 
 }
@@ -369,7 +391,67 @@ void getPrompt(Git::Status const & gitStatus, fs::path const & workingDirectory,
   visitor.cue();
 }
 
+class TtyVisitor {
+public:
+  std::string codes;
+
+  void branch(Git::Status const &status) { 
+    TtyVisitor visitor;
+    getBranchBanner(status, visitor);
+    codes += visitor.codes;
+  }
+
+  void branchStatus(Git::Status const &status) { 
+    TtyVisitor visitor;
+    getBranchStatusMedallion(status, visitor);
+    codes += visitor.codes;
+  }
+
+  void newLine() { codes += "\n"; }
+
+  void workingDirectory(std::filesystem::path const &wd) { 
+    TtyVisitor visitor;
+    getWorkingDirectoryBanner(wd, visitor);
+    codes += visitor.codes;
+  }
+
+  void cue() { codes += "\n$ "; }
+
+  void resetColors() { codes += ::resetColors(); }
+
+  void foreColor(Color const &c) { codes += setTerminalColor(c, Where::fore); }
+
+  void backColor(Color const &c) { codes += setTerminalColor(c, Where::back); }
+
+  void text(std::string const t) { codes += t; }
+
+  void inlineDirSeparator() { codes += Symbols::CHEVRON_RIGHT_LINE; }
+
+  void finalDirSeparator() { codes += Symbols::CHEVRON_RIGHT_FULL; }
+
+  void branchOpen() { codes += Symbols::OPENING_BUBBLE; }
+
+  void branchClose() { codes += Symbols::CLOSING_BUBBLE; }
+
+  void symbolModified() { codes += Symbols::GIFT; }
+
+  void symbolHistoryShared() { codes += Symbols::ANGLE_UP; }
+
+  void symbolHistoryGrowth() { codes += Symbols::ANGLE_UP_DOUBLE; }
+};
+
 int program() {
+
+  auto const gitStatus = Git::getStatus();
+  fs::path wd = getenv("PWD"); // check for null!?
+
+  TtyVisitor visitor;
+  getPrompt(gitStatus, wd, visitor);
+  std::cout << visitor.codes;
+  return 0; 
+}
+
+int oldProgram() {
 
   auto const branchName = getGitBranch();
 
