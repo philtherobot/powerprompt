@@ -229,23 +229,28 @@ using CallVector = std::vector<Call>;
 class Visitor {
 public:
   CallVector calls;
-  // TODO: refactor all the emplace_back
-  void branch(Git::Status const &status) { calls.emplace_back(Branch{status}); }
-  void branchStatus(Git::Status const &status) { calls.emplace_back(BranchMedallion{status}); }
-  void newLine() { calls.emplace_back(NewLine()); }
-  void workingDirectory(std::filesystem::path const &wd) { calls.emplace_back(WorkingDirectory{wd}); }
-  void cue() { calls.emplace_back(Cue()); }
-  void resetColors() { calls.emplace_back(ResetColors{}); }
-  void foreColor(Color const &c) { calls.emplace_back(ForeColor{c}); }
-  void backColor(Color const &c) { calls.emplace_back(BackColor{c}); }
-  void text(std::string const t) { calls.emplace_back(Text{t}); }
-  void inlineDirSeparator() { calls.emplace_back(InlineDirSeparator{}); }
-  void finalDirSeparator() { calls.emplace_back(FinalDirSeparator{}); }
-  void branchOpen() { calls.emplace_back(BranchOpen()); }
-  void branchClose() { calls.emplace_back(BranchClose()); }
-  void symbolModified() { calls.emplace_back(SymbolModified()); }
-  void symbolHistoryShared() { calls.emplace_back(SymbolHistoryShared()); }
-  void symbolHistoryGrowth() { calls.emplace_back(SymbolHistoryGrowth()); }
+  void branch(Git::Status const &status) { save(Branch{status}); }
+  void branchStatus(Git::Status const &status) { save(BranchMedallion{status}); }
+  void newLine() { save(NewLine()); }
+  void workingDirectory(std::filesystem::path const &wd) { save(WorkingDirectory{wd}); }
+  void cue() { save(Cue()); }
+  void resetColors() { save(ResetColors{}); }
+  void foreColor(Color const &c) { save(ForeColor{c}); }
+  void backColor(Color const &c) { save(BackColor{c}); }
+  void text(std::string const t) { save(Text{t}); }
+  void inlineDirSeparator() { save(InlineDirSeparator{}); }
+  void finalDirSeparator() { save(FinalDirSeparator{}); }
+  void branchOpen() { save(BranchOpen()); }
+  void branchClose() { save(BranchClose()); }
+  void symbolModified() { save(SymbolModified()); }
+  void symbolHistoryShared() { save(SymbolHistoryShared()); }
+  void symbolHistoryGrowth() { save(SymbolHistoryGrowth()); }
+
+private:
+  template <typename T>
+  void save(T t) {
+    calls.push_back(t);
+  }
 };
 
 bool checkCalls(CallVector const &calls, CallVector const &expected) {
@@ -373,7 +378,54 @@ TEST_CASE("branch medallion") {
                                         Text{" "},
                                         ForeColor{Colors::historyShared},
                                         SymbolHistoryShared{},
+                                        Text{" "},
+                                        ForeColor{Colors::medallion},
+                                        BackColor{Colors::branch},
+                                        BranchClose{},
                                         ForeColor{Colors::bright},
+                                    }));
+  }
+
+  SECTION("behind") {
+    Git::Status const status{"GSD-2808_filter", Git::WorkingDirectoryStatus::Clean, Git::UpstreamStatus::Set, 0, 1};
+
+    getBranchStatusMedallion(status, visitor);
+
+    CHECK(checkCalls(visitor.calls, CallVector{
+                                        ForeColor{Colors::medallion},
+                                        BranchOpen{},
+                                        ForeColor{Colors::bright},
+                                        BackColor{Colors::medallion},
+                                        Text{" "},
+                                        ForeColor{Colors::historyShared},
+                                        SymbolHistoryShared{},
+                                        Text{" "},
+                                        ForeColor{Colors::historyGrowthOrigin},
+                                        SymbolHistoryGrowth{},
+                                        Text{" "},
+                                        ForeColor{Colors::medallion},
+                                        BackColor{Colors::branch},
+                                        BranchClose{},
+                                        ForeColor{Colors::bright},
+                                    }));
+  }
+
+  SECTION("ahead and behind") {
+    Git::Status const status{"GSD-2808_filter", Git::WorkingDirectoryStatus::Clean, Git::UpstreamStatus::Set, 1, 1};
+
+    getBranchStatusMedallion(status, visitor);
+
+    CHECK(checkCalls(visitor.calls, CallVector{
+                                        ForeColor{Colors::medallion},
+                                        BranchOpen{},
+                                        ForeColor{Colors::bright},
+                                        BackColor{Colors::medallion},
+                                        Text{" "},
+                                        ForeColor{Colors::historyGrowthLocal},
+                                        SymbolHistoryGrowth{},
+                                        Text{" "},
+                                        ForeColor{Colors::historyGrowthOrigin},
+                                        SymbolHistoryGrowth{},
                                         Text{" "},
                                         ForeColor{Colors::medallion},
                                         BackColor{Colors::branch},

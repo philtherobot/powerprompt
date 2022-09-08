@@ -262,7 +262,8 @@ template <typename Visitor>
 void getBranchStatusMedallion(Git::Status const & status, Visitor & visitor) {
 
   if(status.workingDirectoryStatus == Git::WorkingDirectoryStatus::Clean &&
-      status.upstreamStatus == Git::UpstreamStatus::Set)
+      status.upstreamStatus == Git::UpstreamStatus::Set &&
+      status.nbCommitsAhead == 0 && status.nbCommitsBehind == 0)
     return;
 
   visitor.foreColor(Colors::medallion);
@@ -287,6 +288,30 @@ void getBranchStatusMedallion(Git::Status const & status, Visitor & visitor) {
     visitor.text("no upstream");
     visitor.text(" ");
     break;
+  }
+
+  if(status.nbCommitsAhead != 0 || status.nbCommitsBehind != 0) {
+    if(status.nbCommitsAhead == 0) {
+      visitor.foreColor(Colors::historyShared);
+      visitor.symbolHistoryShared();
+    }
+    else {
+      visitor.foreColor(Colors::historyGrowthLocal);
+      visitor.symbolHistoryGrowth();
+    }
+
+    visitor.text(" ");
+
+    if(status.nbCommitsBehind == 0) {
+      visitor.foreColor(Colors::historyShared);
+      visitor.symbolHistoryShared();
+    }
+    else {
+      visitor.foreColor(Colors::historyGrowthOrigin);
+      visitor.symbolHistoryGrowth();
+    }
+
+    visitor.text(" ");
   }
 
   visitor.foreColor(Colors::medallion);
