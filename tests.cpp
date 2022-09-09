@@ -8,6 +8,8 @@
 
 namespace Status {
 
+char const *const notAGitDirectory = "";  // we get no output from git status in this case
+
 char const *const clean =
     R"(# branch.oid b6537cc298777bf35ca3d64ab519d1ad98a5ec45
 # branch.head GSD-2808_filter
@@ -64,6 +66,7 @@ TEST_CASE("git status") {
 
   auto call = [](char const *const gitStatusOutput) { std::stringstream is(gitStatusOutput); return Git::getStatus(is); };
 
+  CHECK(call(Status::notAGitDirectory) == Git::Status{"", Git::WorkingDirectoryStatus::Clean, Git::UpstreamStatus::Unset, 0, 0});
   CHECK(call(Status::clean) == Git::Status{"GSD-2808_filter", Git::WorkingDirectoryStatus::Clean, Git::UpstreamStatus::Set, 0, 0});
   CHECK(call(Status::locallyModified) == Git::Status{"trunk", Git::WorkingDirectoryStatus::Modified, Git::UpstreamStatus::Set, 0, 0});
   CHECK(call(Status::withoutUpstream) == Git::Status{"GSD-2808_filter", Git::WorkingDirectoryStatus::Clean, Git::UpstreamStatus::Unset, 0, 0});
@@ -288,17 +291,17 @@ TEST_CASE("branch banner") {
   getBranchBanner(status, visitor);
 
   CHECK(checkCalls(visitor.calls, CallVector{
-                                      ForeColor{Colors::branch},
+                                      ForeColor{Colors::BRANCH},
                                       BranchOpen{},
-                                      ForeColor{Colors::bright},
-                                      BackColor{Colors::branch},
+                                      ForeColor{Colors::BRIGHT},
+                                      BackColor{Colors::BRANCH},
                                       Text{" "},
                                       Text{"GSD-2808_filter"},
                                       Text{" "},
                                       BranchMedallion{status},
                                       Text{" "},
                                       ResetColors{},
-                                      ForeColor{Colors::branch},
+                                      ForeColor{Colors::BRANCH},
                                       BranchClose{},
                                       ResetColors{},
                                   }));
@@ -321,17 +324,17 @@ TEST_CASE("branch medallion") {
     getBranchStatusMedallion(status, visitor);
 
     CHECK(checkCalls(visitor.calls, CallVector{
-                                        ForeColor{Colors::medallion},
+                                        ForeColor{Colors::MEDALLION},
                                         BranchOpen{},
-                                        ForeColor{Colors::bright},
-                                        BackColor{Colors::medallion},
+                                        ForeColor{Colors::BRIGHT},
+                                        BackColor{Colors::MEDALLION},
                                         Text{" "},
                                         SymbolModified(),
                                         Text{" "},
-                                        ForeColor{Colors::medallion},
-                                        BackColor{Colors::branch},
+                                        ForeColor{Colors::MEDALLION},
+                                        BackColor{Colors::BRANCH},
                                         BranchClose{},
-                                        ForeColor{Colors::bright},
+                                        ForeColor{Colors::BRIGHT},
                                     }));
   }
 
@@ -341,17 +344,17 @@ TEST_CASE("branch medallion") {
     getBranchStatusMedallion(status, visitor);
 
     CHECK(checkCalls(visitor.calls, CallVector{
-                                        ForeColor{Colors::medallion},
+                                        ForeColor{Colors::MEDALLION},
                                         BranchOpen{},
-                                        ForeColor{Colors::bright},
-                                        BackColor{Colors::medallion},
+                                        ForeColor{Colors::BRIGHT},
+                                        BackColor{Colors::MEDALLION},
                                         Text{" "},
                                         Text{"no upstream"},
                                         Text{" "},
-                                        ForeColor{Colors::medallion},
-                                        BackColor{Colors::branch},
+                                        ForeColor{Colors::MEDALLION},
+                                        BackColor{Colors::BRANCH},
                                         BranchClose{},
-                                        ForeColor{Colors::bright},
+                                        ForeColor{Colors::BRIGHT},
                                     }));
   }
 
@@ -368,21 +371,21 @@ TEST_CASE("branch medallion") {
     getBranchStatusMedallion(status, visitor);
 
     CHECK(checkCalls(visitor.calls, CallVector{
-                                        ForeColor{Colors::medallion},
+                                        ForeColor{Colors::MEDALLION},
                                         BranchOpen{},
-                                        ForeColor{Colors::bright},
-                                        BackColor{Colors::medallion},
+                                        ForeColor{Colors::BRIGHT},
+                                        BackColor{Colors::MEDALLION},
                                         Text{" "},
-                                        ForeColor{Colors::historyGrowthLocal},
+                                        ForeColor{Colors::HISTORY_GROWTH_LOCAL},
                                         SymbolHistoryGrowth{},
                                         Text{" "},
-                                        ForeColor{Colors::historyShared},
+                                        ForeColor{Colors::HISTORY_SHARED},
                                         SymbolHistoryShared{},
                                         Text{" "},
-                                        ForeColor{Colors::medallion},
-                                        BackColor{Colors::branch},
+                                        ForeColor{Colors::MEDALLION},
+                                        BackColor{Colors::BRANCH},
                                         BranchClose{},
-                                        ForeColor{Colors::bright},
+                                        ForeColor{Colors::BRIGHT},
                                     }));
   }
 
@@ -392,21 +395,21 @@ TEST_CASE("branch medallion") {
     getBranchStatusMedallion(status, visitor);
 
     CHECK(checkCalls(visitor.calls, CallVector{
-                                        ForeColor{Colors::medallion},
+                                        ForeColor{Colors::MEDALLION},
                                         BranchOpen{},
-                                        ForeColor{Colors::bright},
-                                        BackColor{Colors::medallion},
+                                        ForeColor{Colors::BRIGHT},
+                                        BackColor{Colors::MEDALLION},
                                         Text{" "},
-                                        ForeColor{Colors::historyShared},
+                                        ForeColor{Colors::HISTORY_SHARED},
                                         SymbolHistoryShared{},
                                         Text{" "},
-                                        ForeColor{Colors::historyGrowthOrigin},
+                                        ForeColor{Colors::HISTORY_GROWTH_ORIGIN},
                                         SymbolHistoryGrowth{},
                                         Text{" "},
-                                        ForeColor{Colors::medallion},
-                                        BackColor{Colors::branch},
+                                        ForeColor{Colors::MEDALLION},
+                                        BackColor{Colors::BRANCH},
                                         BranchClose{},
-                                        ForeColor{Colors::bright},
+                                        ForeColor{Colors::BRIGHT},
                                     }));
   }
 
@@ -416,21 +419,21 @@ TEST_CASE("branch medallion") {
     getBranchStatusMedallion(status, visitor);
 
     CHECK(checkCalls(visitor.calls, CallVector{
-                                        ForeColor{Colors::medallion},
+                                        ForeColor{Colors::MEDALLION},
                                         BranchOpen{},
-                                        ForeColor{Colors::bright},
-                                        BackColor{Colors::medallion},
+                                        ForeColor{Colors::BRIGHT},
+                                        BackColor{Colors::MEDALLION},
                                         Text{" "},
-                                        ForeColor{Colors::historyGrowthLocal},
+                                        ForeColor{Colors::HISTORY_GROWTH_LOCAL},
                                         SymbolHistoryGrowth{},
                                         Text{" "},
-                                        ForeColor{Colors::historyGrowthOrigin},
+                                        ForeColor{Colors::HISTORY_GROWTH_ORIGIN},
                                         SymbolHistoryGrowth{},
                                         Text{" "},
-                                        ForeColor{Colors::medallion},
-                                        BackColor{Colors::branch},
+                                        ForeColor{Colors::MEDALLION},
+                                        BackColor{Colors::BRANCH},
                                         BranchClose{},
-                                        ForeColor{Colors::bright},
+                                        ForeColor{Colors::BRIGHT},
                                     }));
   }
 }
@@ -442,8 +445,8 @@ TEST_CASE("working directory banner") {
   getWorkingDirectoryBanner("/home/phil", visitor);
 
   CHECK(checkCalls(visitor.calls, CallVector{
-                                      ForeColor{Colors::bright},
-                                      BackColor{Colors::wd},
+                                      ForeColor{Colors::BRIGHT},
+                                      BackColor{Colors::WD},
                                       Text{" "},
                                       Text{"/"},
                                       Text{" "},
@@ -456,7 +459,7 @@ TEST_CASE("working directory banner") {
                                       Text{"phil"},
                                       Text{" "},
                                       ResetColors{},
-                                      ForeColor{Colors::wd},
+                                      ForeColor{Colors::WD},
                                       FinalDirSeparator{},
                                       ResetColors{},
                                   }));
@@ -467,13 +470,28 @@ TEST_CASE("prompt") {
   Visitor visitor;
 
   Git::Status gitStatus;
-  gitStatus.branchName = "GSD-2020_fix";
-  gitStatus.workingDirectoryStatus = Git::WorkingDirectoryStatus::Clean;
-  gitStatus.upstreamStatus = Git::UpstreamStatus::Set;
-  gitStatus.nbCommitsAhead = 0;
-  gitStatus.nbCommitsBehind = 0;
 
-  getPrompt(gitStatus, "/home/phil", visitor);
+  SECTION("clean branch") {
+    gitStatus.branchName = "GSD-2888_branch";
+    gitStatus.workingDirectoryStatus = Git::WorkingDirectoryStatus::Clean;
+    gitStatus.upstreamStatus = Git::UpstreamStatus::Unset;
+    gitStatus.nbCommitsAhead = 0;
+    gitStatus.nbCommitsBehind = 0;
 
-  CHECK(checkCalls(visitor.calls, CallVector{Branch{gitStatus}, NewLine(), WorkingDirectory{"/home/phil"}, Cue()}));
+    getPrompt(gitStatus, "/home/phil", visitor);
+
+    CHECK(checkCalls(visitor.calls, CallVector{Branch{gitStatus}, NewLine(), WorkingDirectory{"/home/phil"}, Cue()}));
+  }
+
+  SECTION("no git") {
+    gitStatus.branchName = "";
+    gitStatus.workingDirectoryStatus = Git::WorkingDirectoryStatus::Clean;
+    gitStatus.upstreamStatus = Git::UpstreamStatus::Set;
+    gitStatus.nbCommitsAhead = 0;
+    gitStatus.nbCommitsBehind = 0;
+
+    getPrompt(gitStatus, "/home/phil", visitor);
+
+    CHECK(checkCalls(visitor.calls, CallVector{WorkingDirectory{"/home/phil"}, Cue()}));
+  }
 }

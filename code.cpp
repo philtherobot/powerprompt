@@ -26,25 +26,26 @@ bool operator ==(Color const & left, Color const & right) {
 namespace Colors {
 
 namespace Details {
-Color const white{211,215,207};
-Color const red{239,41,41};
-Color const cyan{6,152,154};
-Color const green{78,154,6};
-Color const blue{0, 0, 255};
+Color const WHITE{211,215,207};
+Color const RED{228,26,28};
+Color const CYAN{6,152,154};
+Color const GREEN{77,175,74};
+Color const BLUE{55,126,184};
 }
 
-Color const bright = Details::white;
-Color const medallion = Details::red;
-Color const branch = Details::cyan;
-Color const wd = Details::green;
-Color const historyShared = Details::white;
-Color const historyGrowthLocal = Details::blue;
-Color const historyGrowthOrigin = Details::green;
+Color const BRIGHT = Details::WHITE;
+Color const MEDALLION = Details::RED;
+Color const BRANCH = Details::CYAN;
+Color const WD = Details::GREEN;
+Color const HISTORY_SHARED = Details::WHITE;
+Color const HISTORY_GROWTH_LOCAL = Details::BLUE;
+Color const HISTORY_GROWTH_ORIGIN = Details::GREEN;
 }
 
 namespace Symbols {
 
-// TODO: add namespace Details, use conceptual names
+namespace Details {
+
 std::string const CHEVRON_RIGHT_FULL = "\xee\x82\xb0";
 std::string const CHEVRON_RIGHT_LINE = "\xee\x82\xb1";
 
@@ -53,21 +54,34 @@ std::string const CLOSING_BUBBLE = "\xee\x82\xb4";
 
 std::string const GIFT = "\xef\x90\xb6";
 
-std::string const ANGLE_UP_DOUBLE = "\xef\x84\x82";
+std::string const ANGLE_UP_DOUBLE = "\xef\x84\x82";  // those are really small
 std::string const ANGLE_UP = "\xef\x84\x86";
-// asterisk fbc2  or  f069   or F881
 
+std::string const BATTERY_10 = "\xef\x95\xba"; // UF57A
+std::string const BATTERY_50 = "\xef\x95\xbd"; // UF57D
+std::string const BATTERY_90 = "\xef\x96\x81"; // UF581
+std::string const BATTERY_100 = "\xef\x95\xb8"; // UF578
+
+std::string const BLOCK_LOWER_HALF = "\xe2\x96\x84"; // U2584
+std::string const BLOCK_FULL = "\xe2\x96\x88"; // U2588, visually bad, optical effect of not going high enough, cuts the background color
+
+std::string const FLAG = "\xee\x8f\x84"; // UE3C4  the single flag intended for less work actually looks bigger and more advanced than "stacked"
+std::string const FLAG_STACKED = "\xee\x8f\x85";
+
+// asterisk fbc2  or  f069   or F881
 // angle double up  f102  ro F63E
 // angle single up  f106
-// battery  50%   f57d
-// battery 90%  f581
-// battery full  f578
-
-// lower half block  U2584
-// full block  U2588
-
 // temparature?   F2C7
-// flags  E3C4
+
+}
+
+std::string const DIR_SEPARATOR_INLINE = Details::CHEVRON_RIGHT_LINE;
+std::string const DIR_SEPARATOR_FINAL = Details::CHEVRON_RIGHT_FULL;
+std::string const BRANCH_OPEN = Details::OPENING_BUBBLE;
+std::string const BRANCH_CLOSE = Details::CLOSING_BUBBLE;
+std::string const MODIFIED = Details::GIFT;
+std::string const HISTORY_SHARED = Details::BATTERY_10;
+std::string const HISTORY_GROWTH = Details::BATTERY_90;
 }
 
 namespace Git {
@@ -185,32 +199,6 @@ Status getStatus() {
 
 /////////////////////////////////////////////////////////
 
-// TOOD: this is older code meant to be replaced
-std::string getGitBranch() {
-  bp::ipstream is;
-  bp::system("git branch --show-current", bp::std_err > bp::null, bp::std_out > is);
-  std::string line;
-  std::getline(is, line);
-  return line;
-}
-
-// TOOD: this is older code meant to be replaced
-bool areThereUncommittedFiles(std::istream & gitStatusOutput) {
-  while(gitStatusOutput) {
-    std::string line;
-    std::getline(gitStatusOutput, line);
-    if(!line.empty() && line.front() != '?') return true;
-  }
-  return false;
-}
-
-// TOOD: this is older code meant to be replaced
-bool areThereUncommittedFiles() {
-  bp::ipstream is;
-  bp::system("git status --porcelain", bp::std_err > bp::null, bp::std_out > is);
-  return areThereUncommittedFiles(is);
-}
-
 std::vector<std::string> getWorkingDirectoryChain(fs::path const & wd) {
   
   std::vector<std::string> result;
@@ -232,40 +220,16 @@ std::string setTerminalColor(Color color, Where where) {
   return os.str();
 }
 
-std::string textColor(Color color) {
-    return setTerminalColor(color, Where::fore);
-}
-
-std::string backColor(Color color) {
-  return setTerminalColor(color, Where::back);
-}
-
-std::string setColors(Color fore, Color back) {
-  return textColor(fore) + backColor(back);
-}
-
 std::string resetColors() {
   return "\x1B[0m";
 }
 
-std::string transitionIn(std::string const & symbol, Color fore, Color back) {
-  return textColor(back) + symbol + setColors(fore, back);
-}
-
-std::string transitionOut(std::string const & symbol, Color previous_back, Color fore, Color back) {
-  return setColors(previous_back, back) + symbol + textColor(fore);
-}
-
-std::string transitionOut(std::string const symbol, Color previous_back) {
-  return resetColors() + textColor(previous_back) + symbol + resetColors();
-}
-
 template <typename Visitor>
 void getBranchBanner(Git::Status const & status, Visitor & visitor) {
-  visitor.foreColor(Colors::branch);
+  visitor.foreColor(Colors::BRANCH);
   visitor.branchOpen();
-  visitor.foreColor(Colors::bright);
-  visitor.backColor(Colors::branch);
+  visitor.foreColor(Colors::BRIGHT);
+  visitor.backColor(Colors::BRANCH);
 
   visitor.text(" ");
   visitor.text(status.branchName);
@@ -275,7 +239,7 @@ void getBranchBanner(Git::Status const & status, Visitor & visitor) {
 
   visitor.text(" ");
   visitor.resetColors();
-  visitor.foreColor(Colors::branch);
+  visitor.foreColor(Colors::BRANCH);
   visitor.branchClose();
   visitor.resetColors();
 }
@@ -288,10 +252,10 @@ void getBranchStatusMedallion(Git::Status const & status, Visitor & visitor) {
       status.nbCommitsAhead == 0 && status.nbCommitsBehind == 0)
     return;
 
-  visitor.foreColor(Colors::medallion);
+  visitor.foreColor(Colors::MEDALLION);
   visitor.branchOpen();
-  visitor.foreColor(Colors::bright);
-  visitor.backColor(Colors::medallion);
+  visitor.foreColor(Colors::BRIGHT);
+  visitor.backColor(Colors::MEDALLION);
   visitor.text(" ");
 
   switch(status.workingDirectoryStatus) {
@@ -314,32 +278,32 @@ void getBranchStatusMedallion(Git::Status const & status, Visitor & visitor) {
 
   if(status.nbCommitsAhead != 0 || status.nbCommitsBehind != 0) {
     if(status.nbCommitsAhead == 0) {
-      visitor.foreColor(Colors::historyShared);
+      visitor.foreColor(Colors::HISTORY_SHARED);
       visitor.symbolHistoryShared();
     }
     else {
-      visitor.foreColor(Colors::historyGrowthLocal);
+      visitor.foreColor(Colors::HISTORY_GROWTH_LOCAL);
       visitor.symbolHistoryGrowth();
     }
 
     visitor.text(" ");
 
     if(status.nbCommitsBehind == 0) {
-      visitor.foreColor(Colors::historyShared);
+      visitor.foreColor(Colors::HISTORY_SHARED);
       visitor.symbolHistoryShared();
     }
     else {
-      visitor.foreColor(Colors::historyGrowthOrigin);
+      visitor.foreColor(Colors::HISTORY_GROWTH_ORIGIN);
       visitor.symbolHistoryGrowth();
     }
 
     visitor.text(" ");
   }
 
-  visitor.foreColor(Colors::medallion);
-  visitor.backColor(Colors::branch);
+  visitor.foreColor(Colors::MEDALLION);
+  visitor.backColor(Colors::BRANCH);
   visitor.branchClose();
-  visitor.foreColor(Colors::bright);
+  visitor.foreColor(Colors::BRIGHT);
 }
 
 template <typename Visitor>
@@ -349,8 +313,8 @@ void getWorkingDirectoryBanner(fs::path const & workingDirectory, Visitor & visi
 
   if (!wdChain.empty()) {
 
-    visitor.foreColor(Colors::bright);
-    visitor.backColor(Colors::wd);
+    visitor.foreColor(Colors::BRIGHT);
+    visitor.backColor(Colors::WD);
 
     visitor.text(" ");
     visitor.text(wdChain.front());
@@ -377,7 +341,7 @@ void getWorkingDirectoryBanner(fs::path const & workingDirectory, Visitor & visi
 
     visitor.text(" ");
     visitor.resetColors();
-    visitor.foreColor(Colors::wd);
+    visitor.foreColor(Colors::WD);
     visitor.finalDirSeparator();
     visitor.resetColors();
   }
@@ -385,8 +349,12 @@ void getWorkingDirectoryBanner(fs::path const & workingDirectory, Visitor & visi
 
 template <typename Visitor>
 void getPrompt(Git::Status const & gitStatus, fs::path const & workingDirectory, Visitor & visitor) {
-  visitor.branch(gitStatus);
-  visitor.newLine();
+
+  if(!gitStatus.branchName.empty()) {
+    visitor.branch(gitStatus);
+    visitor.newLine();
+  }
+
   visitor.workingDirectory(workingDirectory);
   visitor.cue();
 }
@@ -425,19 +393,19 @@ public:
 
   void text(std::string const t) { codes += t; }
 
-  void inlineDirSeparator() { codes += Symbols::CHEVRON_RIGHT_LINE; }
+  void inlineDirSeparator() { codes += Symbols::DIR_SEPARATOR_INLINE; }
 
-  void finalDirSeparator() { codes += Symbols::CHEVRON_RIGHT_FULL; }
+  void finalDirSeparator() { codes += Symbols::DIR_SEPARATOR_FINAL; }
 
-  void branchOpen() { codes += Symbols::OPENING_BUBBLE; }
+  void branchOpen() { codes += Symbols::BRANCH_OPEN; }
 
-  void branchClose() { codes += Symbols::CLOSING_BUBBLE; }
+  void branchClose() { codes += Symbols::BRANCH_CLOSE; }
 
-  void symbolModified() { codes += Symbols::GIFT; }
+  void symbolModified() { codes += Symbols::MODIFIED; }
 
-  void symbolHistoryShared() { codes += Symbols::ANGLE_UP; }
+  void symbolHistoryShared() { codes += Symbols::HISTORY_SHARED; }
 
-  void symbolHistoryGrowth() { codes += Symbols::ANGLE_UP_DOUBLE; }
+  void symbolHistoryGrowth() { codes += Symbols::HISTORY_GROWTH; }
 };
 
 int program() {
@@ -449,57 +417,4 @@ int program() {
   getPrompt(gitStatus, wd, visitor);
   std::cout << visitor.codes;
   return 0; 
-}
-
-int oldProgram() {
-
-  auto const branchName = getGitBranch();
-
-  using std::cout;
-  
-  if(!branchName.empty()) {
-    cout << transitionIn(Symbols::OPENING_BUBBLE, Colors::bright, Colors::branch);
-    cout << ' ' << branchName << ' ';
-
-    if(areThereUncommittedFiles()) {
-      cout << transitionIn(Symbols::OPENING_BUBBLE, Colors::bright, Colors::medallion);
-      cout << ' ' << Symbols::GIFT << ' ';
-      cout << transitionOut(Symbols::CLOSING_BUBBLE, Colors::medallion, Colors::bright, Colors::branch);
-      cout << ' ';
-    }
-
-    cout << transitionOut(Symbols::CLOSING_BUBBLE, Colors::branch);
-    cout << '\n';
-  }
-
-  fs::path wd = getenv("PWD"); // check for null!?
-  auto const wdChain = getWorkingDirectoryChain(wd);
-
-  if(!wdChain.empty()) {
-    cout << setColors(Colors::bright, Colors::wd);
-    cout << ' ' << wdChain.front();
-
-    if(wdChain.size() > 1) {
-      auto const dirSeparator = " " + Symbols::CHEVRON_RIGHT_LINE + " ";
-      cout << dirSeparator;
-
-      std::for_each(
-          std::begin(wdChain) + 1,
-          std::end(wdChain) - 1,
-          [&](auto const & e) {
-            std::cout << e;
-            std::cout << dirSeparator;
-          });
-
-      cout << wdChain.back();
-    }
-
-    cout << ' ';
-    cout << transitionOut(Symbols::CHEVRON_RIGHT_FULL, Colors::wd);
-  }
-  // else, do nothing
-
-  cout << "\n$ ";
-
-  return 0;
 }
