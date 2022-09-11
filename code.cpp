@@ -4,11 +4,13 @@
 #include <algorithm>
 #include <boost/process.hpp>
 #include <cstdlib>
+#include <cwchar>
 #include <filesystem>
 #include <iostream>
 #include <regex>
 #include <sstream>
 #include <tuple>
+#include <windows.h>
 
 namespace bp = boost::process;
 namespace fs = std::filesystem;
@@ -199,12 +201,31 @@ Status getStatus() {
 
 /////////////////////////////////////////////////////////
 
+std::string toString(std::wstring const &ws) {
+  char utf8[1024] = {}; // Have to be zero-initialized because
+                        // WideCharToMultiByte will not add zero at the end
+
+  wchar_t const * const wsStr = ws.c_str();
+
+  WideCharToMultiByte(  // Ignoring return value, assuming we have enough space.
+      CP_UTF8,
+      0,
+      wsStr,
+      static_cast<int>(std::wcslen(wsStr)),
+      utf8,
+      sizeof(utf8),
+      nullptr,
+      nullptr);
+
+  return utf8;
+}
+
 std::vector<std::string> getWorkingDirectoryChain(fs::path const & wd) {
   
   std::vector<std::string> result;
 
   std::transform(std::begin(wd), std::end(wd), std::back_inserter(result), [](fs::path const &dir) {
-    return dir.string();
+    return toString(dir.wstring());
   });
 
   return result;
@@ -408,10 +429,19 @@ public:
   void symbolHistoryGrowth() { codes += Symbols::HISTORY_GROWTH; }
 };
 
+fs::path getCurrentWorkingDirectory() {
+  // We are Windows program but we want Cygwin's CWD.
+  wchar_t const * const pwd = _wgetenv(L"PWD");
+  if(!pwd) {
+    return "nopwd!";
+  }
+  return pwd;
+}
+
 int program() {
 
   auto const gitStatus = Git::getStatus();
-  fs::path wd = getenv("PWD"); // check for null!?
+  fs::path const wd = getCurrentWorkingDirectory();
 
   TtyVisitor visitor;
   getPrompt(gitStatus, wd, visitor);
